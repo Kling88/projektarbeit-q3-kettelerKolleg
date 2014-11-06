@@ -16,7 +16,7 @@ uses
 //Konstanten
 const
   G: real = 10.0;     //Gravitationskonstante, siehe "groß G" in der "echten" Formel
-  SCALE: real = 1000.0; //Räumliche Skalierung, eine 100 bedeutet,
+  SCALE: real = 100.0; //Räumliche Skalierung, eine 100 bedeutet,
                        //die Abstände zwischen den Planeten sind 100x gestreckt
 
 
@@ -185,9 +185,10 @@ begin
 
   //Hier beliebig viele Planeten erstellen und der Liste hinzufügen mithilfe von
   //planets.Add(hier einmal Konstruktor aufrufen mit gewünschten Werten)
-  planets.Add(Planet.Create(100.0, 100.0, 1, 7, clBlue, sun));
-  planets.Add(Planet.Create(360.0, 200.0, 50, 6, clGreen, sun));
-  planets.Add(Planet.Create(250.0, 520.0, 1, 5, clRed, sun));
+  planets.Add(Planet.Create(160, 160, 5, 7, clBlue, sun));
+  planets.Add(Planet.Create(800, 330, 50, 6, clGreen, sun));
+  planets.Add(Planet.Create(280, 280, 32, 8, clGray, sun));
+  planets.Add(Planet.Create(700, 430, 4, 5, clRed, sun));
   //-> planets.Add ...
 end;
 
@@ -195,6 +196,8 @@ procedure TForm1.update();
 var
   n: integer;
 begin
+  inherited;
+
   //für jedes Objekt in der Liste planets...
   for n := 0 to planets.Count - 1 do
   begin
