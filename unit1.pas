@@ -1,0 +1,222 @@
+//Beitrag Projektarbeit Informatik Q3 2014 Ketteler-Kolleg
+//Author: Konstantin Kling
+//Kommentierte Version
+
+unit Unit1;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
+  ExtCtrls, Math;
+
+
+//Konstanten
+const
+  G: real = 10.0;     //Gravitationskonstante, siehe "groß G" in der "echten" Formel
+  SCALE: real = 1000.0; //Räumliche Skalierung, eine 100 bedeutet,
+                       //die Abstände zwischen den Planeten sind 100x gestreckt
+
+
+type
+
+  { TForm1 }
+
+  TForm1 = class(TForm)
+    Timer1: TTimer;
+    procedure FormCreate(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
+  private
+    { private declarations }
+  public
+    { public declarations }
+    procedure init();  //wird beim Aufruf des Programms einmal aufgerufen
+    procedure update(); //wird immer wieder aufgerufen, abhängig vom Interval des Timers
+    procedure render(); //wird ebenfalls wiederholt aufgerufen, nachdem update() ausgeführt wurde
+  end;
+
+
+  //Klasse Planet
+  Planet = class
+  private
+    x, y, xa, ya: real; // Koordinaten (x,y) und Richtungsvektor (xa, ya)
+    mass, radius: integer; //selbsterklärend
+    col: TColor; //Farbe des Planeten/Himmelskörpers
+    removed: boolean; //Platzhalter, ggf. für spätere Kollosionsabfrage
+    central_body: Planet; //Referenz auf den Partnerhimmelskörper, in dem Fall eine Sonne
+  public
+    //durch den Aufruf von create(parameter) wird eine Instanz eines Planeten erstellt
+    constructor Create(xp, yp: real; m, rad: integer; color: TColor;
+      cbody: Planet);
+
+    //wird im update() der Fensterklasse für jeden Planeten einmal wiederholt aufgerufen
+    //hier findet auch die Berechnung des Richtungsvektoren statt und dieser dann auf die Koordinaten
+    //übertragen (position(x,y) += richtungsvektor(xa,ya))
+    procedure gravitate();
+
+    //durch den Aufruf von render(Referenz auf ein TCanvas) wird der Planet an der momentanen Position x,y gezeichnet
+    procedure render(c: TCanvas);
+
+    //wird bei der Initialisierung einmal aufgerufen, um eine Stabile Laufbahn zu berechnen
+
+    procedure calculateStable();
+
+  end;
+
+
+var
+  Form1: TForm1;
+  sun: Planet; //Der zentrale Himmelskörper
+  planets: TList; //Diese Liste enhält die Planeten abgesehen von der Sonne
+
+implementation
+
+{$R *.lfm}
+
+{ Planet }
+{ für die Beschreibung, beachte die Kommentare der Vorwärtsdeklaration (im class body)}
+
+//Planet Konstruktor, der letzte Parameter ist optional, bei 'Nil' wird keine stabile Planetenbahn
+//berechnet und der Planet ist unbeweglich, da er keinen Referenzkörper hat
+constructor Planet.Create(xp, yp: real; m, rad: integer; color: TColor; cbody: Planet);
+begin
+  x := xp;
+  y := yp;
+  mass := m;
+  radius := rad;
+  central_body := cbody;
+  col := color;
+  xa := 0;
+  ya := 0;
+
+  if cbody <> nil then
+    calculateStable();
+end;
+
+
+procedure Planet.gravitate();
+var
+  dx, dy, dist, force: real;
+begin
+  dx := (central_body.x - x) * SCALE;    //Abstand x-Achse
+  dy := (central_body.y - y) * SCALE;    //Abstand y-Achse
+
+  dist := sqrt(dx * dx + dy * dy); //Länge der Differenz (Satz des Pythagoras)
+
+  //Normalisierung des Vektors
+  dx /= dist;
+  dy /= dist;
+
+  //Berechnung der Kraft der momentanen Bewegung, echte Formel: F = G(m1*m2)/r²
+  force := ((G * SCALE) * central_body.mass * mass) / (dist * dist);
+
+  //appliziere Kraft
+  dx *= force;
+  dy *= force;
+
+  //aktualisiere Richtungsvektor
+  xa += dx;
+  ya += dy;
+
+  //appliziere Richtungsvektor auf die Koordinaten
+  x += xa;
+  y += ya;
+end;
+
+procedure Planet.render(c: TCanvas);
+begin
+  c.Brush.color := col;  //col ist eine private Variable im Planet classbody
+  c.Ellipse(round(x-radius), round(y - radius), round(x + radius), round(y + radius));
+end;
+
+
+procedure Planet.calculateStable();
+var
+  dx, dy, r, v, phi: real;
+
+begin
+  //wie bei gravitate(), Abstand ermitteln
+  dx := (central_body.x - x) * SCALE;
+  dy := (central_body.y - y) * SCALE;
+  r := sqrt(dx * dx + dy * dy);
+
+  //benötigte Stabile Rotationsgeschwindigkeit ermitteln
+  v := sqrt((G * mass * central_body.mass / r));
+
+  //momentanen Winkel zum Zentralkörper ermitteln
+  phi := arctan2(dy, dx);
+
+  //Anhand des Winkels und der ben. Geschwindigkeit Richtungsvektor einstellen
+  xa := -v * sin(phi);  //v ist hier aufgrund der Beschaffenheit von phi negativ
+  ya := v * cos(phi);
+end;
+
+{ TForm1 }
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  inherited;               //super-methode aufrufen, nicht sicher ob nötig
+  DoubleBuffered := True;  //bin mir nicht sicher, ob das was bringt, soll die Zeichnung weicher machen
+                           //allerdings flackert das Bild bei mir nach wie vor
+  planets := TList.Create; //Erstellen der Planetenliste
+
+  init();                         //wie schon bei der Vorwärtsdeklaration erwähnt
+  Timer1.Interval := 1000 div 60; //Interval hier so eingestellt, dass dass ca.
+                                  //60 Aktualisierungen die Sekunde stattfinden
+
+
+  Timer1.Enabled := True;
+
+end;
+
+procedure TForm1.Timer1Timer(Sender: TObject);
+begin
+  update();
+  render();
+end;
+
+
+procedure TForm1.init();
+begin
+  //Einmalige Erstellung des zentralen Himmelskörpers
+  sun := Planet.Create(Form1.Width / 2, Form1.Height / 2, 60, 15, clYellow, nil);
+
+  //Hier beliebig viele Planeten erstellen und der Liste hinzufügen mithilfe von
+  //planets.Add(hier einmal Konstruktor aufrufen mit gewünschten Werten)
+  planets.Add(Planet.Create(100.0, 100.0, 1, 7, clBlue, sun));
+  planets.Add(Planet.Create(360.0, 200.0, 50, 6, clGreen, sun));
+  planets.Add(Planet.Create(250.0, 520.0, 1, 5, clRed, sun));
+  //-> planets.Add ...
+end;
+
+procedure TForm1.update();
+var
+  n: integer;
+begin
+  //für jedes Objekt in der Liste planets...
+  for n := 0 to planets.Count - 1 do
+  begin
+    Planet(planets[n]).gravitate(); //... rufe gravitate() auf
+  end;
+end;
+
+//Zeichne das Bild
+procedure TForm1.render();
+var
+  n: integer;
+begin
+  Canvas.Brush.color := clBlack;   //Setze Brush auf schwarz und..
+  Canvas.FillRect(0, 0, Canvas.Width, Canvas.Height); //Fülle das komplette Canvas damit
+  sun.render(canvas);   //zeichne den zentralen Himmelskörper
+
+  //für jeden Himmelskörper, rufe...
+  for n := 0 to planets.Count - 1 do
+  begin
+    Planet(planets[n]).render(canvas);
+    //... render() auf, als Parameter die Referenz auf das Canvas des Fensters
+  end;
+end;
+
+end.

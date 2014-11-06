@@ -1,0 +1,14 @@
+object Form1: TForm1
+  Left = 93
+  Height = 643
+  Top = 130
+  Width = 856
+  Caption = 'Planet Rotatiation - Gewidmed an Leibniz, Newton und selbstverständlich unsere liebe Frau Hechler die das alles erst ermöglichte!'
+  OnCreate = FormCreate
+  LCLVersion = '1.2.0.3'
+  object Timer1: TTimer
+    OnTimer = Timer1Timer
+    left = 56
+    top = 552
+  end
+end
